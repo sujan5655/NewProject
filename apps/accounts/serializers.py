@@ -11,27 +11,132 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.exceptions import InvalidToken,TokenError
 from rest_framework import status
 from rest_framework.response import Response
-
+from rest_framework.validators import UniqueValidator
+import re
 User=get_user_model()
 
 # Register Serializer
 class RegisterSerializer(serializers.ModelSerializer):
-    password=serializers.CharField(write_only=True,required=True,validators=[validate_password])
-    password_confirm=serializers.CharField(write_only=True)
+    def validate_custom_password(value):
+           if len(value) < 8:
+            raise serializers.ValidationError(
+                "Password must be at least 8 characters long."
+            )
+    
+           if not re.search(r"[A-Z]", value):
+            raise serializers.ValidationError(
+                "Password must contain at least one uppercase letter."
+            )
+    
+           if not re.search(r"[a-z]", value):
+            raise serializers.ValidationError(
+                "Password must contain at least one lowercase letter."
+            )
+    
+           if not re.search(r"\d", value):
+            raise serializers.ValidationError(
+                "Password must contain at least one number."
+            )
+    
+           if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", value):
+            raise serializers.ValidationError(
+                "Password must contain at least one special character."
+            )
+    
+           return value
+    email = serializers.EmailField(
+        validators=[
+            UniqueValidator(
+                queryset=User.objects.all(),
+                message="email has been already registered"
+            )
+        ]
+    )
+
+    first_name = serializers.CharField(
+        required=True,
+        allow_blank=False,
+        error_messages={
+            "required": "first name is required.",
+            "blank": "first name not be empty."
+        }
+    )
+
+    last_name = serializers.CharField(
+        required=True,
+        allow_blank=False,
+        error_messages={
+            "required": "last name is required.",
+            "blank": "last name not be empty."
+        }
+    )
+    password = serializers.CharField(
+    write_only=True,
+    required=True,
+    validators=[validate_custom_password],
+    error_messages={
+        "required": "Password is required.",
+        "blank": "Password cannot be empty.",
+    }
+)
+
+
+    password_confirm = serializers.CharField(
+        write_only=True,
+        required=True
+    )
+
     class Meta:
-      model=User
-      fields=['first_name','last_name','email','phone','role','password','password_confirm']
+        model = User
+        fields = [
+            'first_name',
+            'last_name',
+            'email',
+            'phone',
+            'role',
+            'password',
+            'password_confirm'
+        ]
 
-    def validate(self,attrs):
-      if attrs['password']!=attrs['password_confirm']:
-        raise serializers.ValidationError({"password":"Passwords do not match"})
-      if attrs.get('role')==Role.ADMIN:
-        raise serializers.ValidationError({"role":"Cannot register directly as an admin"})
-      return attrs
+    # def validate_email(self, value):
+    #     if User.objects.filter(email=value).exists():
+    #         raise serializers.ValidationError(
+    #             "An account with this email already exists."
+    #         )
+    #     return value
 
-    def create(self,validated_data):
-     validated_data.pop('password_confirm',None)
-     return User.objects.create_user(**validated_data)
+    # def validate_phone(self, value):
+    #     if User.objects.filter(phone=value).exists():
+    #         raise serializers.ValidationError(
+    #             "This phone number is already registered."
+    #         )
+    #     return value
+   
+
+    def validate_phone(self, value):
+      if User.objects.filter(phone=value).exists():
+        raise serializers.ValidationError(
+            " phone number has already been registered in database"
+        )
+      return value
+
+    def validate(self, attrs):
+        if attrs['password'] != attrs['password_confirm']:
+            raise serializers.ValidationError({
+                "password": "Passwords do not match."
+            })
+
+        if attrs.get('role') == Role.ADMIN:
+            raise serializers.ValidationError({
+                "role": "You cannot register as an administrator."
+            })
+
+        return attrs
+
+    def create(self, validated_data):
+        validated_data.pop('password_confirm', None)
+        return User.objects.create_user(**validated_data)
+
 
 
 

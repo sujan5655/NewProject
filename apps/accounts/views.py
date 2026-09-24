@@ -22,6 +22,8 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Profile
 from .serializers import UpdateProfileSerializer
 from rest_framework.parsers import MultiPartParser, FormParser # Add these parsers
+from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 
 User=get_user_model()
 
@@ -32,11 +34,20 @@ class RegisterView(APIView):
   def post(self,request):
     serializer=RegisterSerializer(data=request.data)
     if serializer.is_valid():
-      serializer.save()
+      user=serializer.save()
       return Response(
-        {"detail":"User registered successsfully"},
-        status=status.HTTP_201_CREATED
-      )
+                {
+                    "message": "User registered successfully",
+                    "user": {
+                        "first_name": user.first_name,
+                        "last_name": user.last_name,
+                        "email": user.email,
+                        "role": user.role,
+                        "approval_status":user.approval_status
+                    }
+                },
+                status=status.HTTP_201_CREATED
+            )
     return Response(
             serializer.errors,
             status=status.HTTP_400_BAD_REQUEST
@@ -142,6 +153,57 @@ class UpdateProfileView(APIView):
         status=status.HTTP_400_BAD_REQUEST
       )
 
+
+
+
+
+
+class CustomTokenRefreshView(TokenRefreshView):
+    serializer_class = TokenRefreshSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception:
+            return Response(
+                {
+                    "detail": "Invalid or expired refresh token."
+                },
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        refresh_token = request.data.get("refresh")
+
+        # Get user from the refresh token
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        try:
+            refresh = RefreshToken(refresh_token)
+            user_id = refresh["user_id"]
+            user = User.objects.get(id=user_id)
+        except Exception:
+            return Response(
+                {
+                    "detail": "User associated with this token was not found."
+                },
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        return Response(
+            {
+                "detail": "Token refreshed successfully",
+                "access": serializer.validated_data["access"],
+                "user": {
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "email": user.email,
+                    "role": user.role,
+                }
+            },
+            status=status.HTTP_200_OK
+        )
 
 
       
