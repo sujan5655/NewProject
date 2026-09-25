@@ -9,6 +9,7 @@ class ProductSerializer(serializers.ModelSerializer):
         source="category.category_name",
         read_only=True
     )
+    category_slug = serializers.CharField( source="category.slug", read_only=True )
 
     image_url = serializers.SerializerMethodField()
 
@@ -26,7 +27,9 @@ class ProductSerializer(serializers.ModelSerializer):
             "stock",
             "is_available",
             "category",
+
             "category_name",
+            "category_slug",
             "created_date",
             "modified_date",
         ]
@@ -35,6 +38,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "id",
             "slug",
             "category_name",
+            "category_slug",
             "image_url",
         ]
 

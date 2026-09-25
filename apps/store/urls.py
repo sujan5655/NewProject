@@ -3,6 +3,7 @@
 from django.urls import path
 
 from .views import (
+    CategoryListAPIView,
     StoreAPIView,
     ProductDetailAPIView
 )
@@ -12,6 +13,12 @@ urlpatterns = [
         "",
         StoreAPIView.as_view(),
         name="store"
+    ),
+    
+    path(
+        "categories/",
+        CategoryListAPIView.as_view(),
+        name="categories"
     ),
 
     path(

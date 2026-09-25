@@ -49,6 +49,9 @@ from .serializers import ProductSerializer
 
 class StoreAPIView(APIView):
   def get(self,request,category_slug=None):
+    # Get query parameters
+    search = request.GET.get("search", "")
+    max_price = request.GET.get("max_price")
     if category_slug:
       category=get_object_or_404(
         Category,
@@ -61,23 +64,52 @@ class StoreAPIView(APIView):
       )
     else:
       products=Product.objects.filter(is_available=True)
-      product_count=products.count()
-      serializer = ProductSerializer(
+      # Search Filter
+    if search:
+      products=products.filter(
+        product_name__icontains=search
+      )
+    # Pricing Filter
+    if max_price:
+      products = products.filter(
+        price__lte=max_price
+    )
+    product_count=products.count()
+    serializer = ProductSerializer(
             products,
             many=True,
             context={"request": request}
         )
-      return Response({
+    
+    return Response({
         "product_count":product_count,
         "products":serializer.data
-      })
+    })
 
 class ProductDetailAPIView(APIView):
   def get(self,request,category_slug,product_slug):
     product=get_object_or_404(
       Product,
-      category_slug=category_slug,
+      category__slug=category_slug,
       slug=product_slug
     )
-    serializer=ProductSerializer(product)
+    serializer=ProductSerializer(product,context={"request": request})
     return Response(serializer.data)
+
+
+class CategoryListAPIView(APIView):
+  def get(self,request):
+    categories=Category.objects.all()
+    return Response({
+      "id":category.id,
+      "category_name":category.category_name,
+      "slug":category.slug,
+      "description":category.description,
+      "cat_image":(
+        request.build_absolute_uri(category.cat_image.url)
+        if category.cat_image
+        else None
+      )
+    }
+    for category in categories
+    )
